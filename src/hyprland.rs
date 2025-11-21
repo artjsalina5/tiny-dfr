@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use std::thread;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -64,56 +65,64 @@ static EVENT_LISTENER_STARTED: std::sync::LazyLock<Arc<Mutex<bool>>> =
 static CACHE_UPDATED: std::sync::LazyLock<Arc<Mutex<bool>>> =
     std::sync::LazyLock::new(|| Arc::new(Mutex::new(false)));
 
-impl HyprlandIpc {
-    pub fn new() -> Result<Self> {
-        // Try to get HYPRLAND_INSTANCE_SIGNATURE from environment first
-        if let Ok(signature) = std::env::var("HYPRLAND_INSTANCE_SIGNATURE") {
-            let socket_path = format!("/tmp/hypr/{}/.socket.sock", signature);
-            let socket2_path = format!("/tmp/hypr/{}/.socket2.sock", signature);
-            return Ok(HyprlandIpc { socket_path, socket2_path });
-        }
+// Deduplicate noisy socket discovery logs
+static LAST_LOGGED_SOCKET: std::sync::LazyLock<Arc<Mutex<Option<String>>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(None)));
 
-        // If not available, try to find the socket automatically
-        // First try /tmp/hypr (traditional location)
-        if let Ok(entries) = std::fs::read_dir("/tmp/hypr") {
-            for entry in entries.flatten() {
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_dir() {
-                        let socket_path = entry.path().join(".socket.sock");
-                        if socket_path.exists() {
-                            let socket2_path = entry.path().join(".socket2.sock");
-                            return Ok(HyprlandIpc {
-                                socket_path: socket_path.to_string_lossy().to_string(),
-                                socket2_path: socket2_path.to_string_lossy().to_string()
-                            });
-                        }
+// Cache discovered sockets to avoid repeated scans/logs
+static DISCOVERED_SOCKETS: std::sync::LazyLock<Arc<Mutex<Option<(String, String)>>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(None)));
+static LAST_DISCOVERY: std::sync::LazyLock<Arc<Mutex<Option<Instant>>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(None)));
+
+const REDISCOVER_BACKOFF: Duration = Duration::from_secs(10);
+
+fn discover_hyprland_sockets() -> Option<(String, String)> {
+    // Prefer environment signature when available
+    if let Ok(signature) = std::env::var("HYPRLAND_INSTANCE_SIGNATURE") {
+        let socket_path = format!("/tmp/hypr/{}/.socket.sock", signature);
+        let socket2_path = format!("/tmp/hypr/{}/.socket2.sock", signature);
+        if std::path::Path::new(&socket_path).exists() {
+            return Some((socket_path, socket2_path));
+        }
+    }
+
+    // Try /tmp/hypr
+    if let Ok(entries) = std::fs::read_dir("/tmp/hypr") {
+        for entry in entries.flatten() {
+            if let Ok(file_type) = entry.file_type() {
+                if file_type.is_dir() {
+                    let socket_path = entry.path().join(".socket.sock");
+                    if socket_path.exists() {
+                        let socket2_path = entry.path().join(".socket2.sock");
+                        return Some((
+                            socket_path.to_string_lossy().to_string(),
+                            socket2_path.to_string_lossy().to_string(),
+                        ));
                     }
                 }
             }
         }
+    }
 
-        // Then try /run/user/*/hypr/ (user session location)
-        if let Ok(run_user_entries) = std::fs::read_dir("/run/user") {
-            for user_entry in run_user_entries.flatten() {
-                if let Ok(file_type) = user_entry.file_type() {
-                    if file_type.is_dir() {
-                        let hypr_path = user_entry.path().join("hypr");
-                        if hypr_path.exists() {
-                            if let Ok(hypr_entries) = std::fs::read_dir(&hypr_path) {
-                                for hypr_entry in hypr_entries.flatten() {
-                                    if let Ok(hypr_file_type) = hypr_entry.file_type() {
-                                        if hypr_file_type.is_dir() {
-                                            let socket_path = hypr_entry.path().join(".socket.sock");
-                                            if socket_path.exists() {
-                                                let path_str = socket_path.to_string_lossy().to_string();
-                                                let socket2_path = hypr_entry.path().join(".socket2.sock");
-                                                let socket2_path_str = socket2_path.to_string_lossy().to_string();
-                                                println!("Found Hyprland socket at: {}", path_str);
-                                                return Ok(HyprlandIpc {
-                                                    socket_path: path_str,
-                                                    socket2_path: socket2_path_str
-                                                });
-                                            }
+    // Try /run/user/*/hypr
+    if let Ok(run_user_entries) = std::fs::read_dir("/run/user") {
+        for user_entry in run_user_entries.flatten() {
+            if let Ok(file_type) = user_entry.file_type() {
+                if file_type.is_dir() {
+                    let hypr_path = user_entry.path().join("hypr");
+                    if hypr_path.exists() {
+                        if let Ok(hypr_entries) = std::fs::read_dir(&hypr_path) {
+                            for hypr_entry in hypr_entries.flatten() {
+                                if let Ok(hypr_file_type) = hypr_entry.file_type() {
+                                    if hypr_file_type.is_dir() {
+                                        let socket_path = hypr_entry.path().join(".socket.sock");
+                                        if socket_path.exists() {
+                                            let socket2_path = hypr_entry.path().join(".socket2.sock");
+                                            return Some((
+                                                socket_path.to_string_lossy().to_string(),
+                                                socket2_path.to_string_lossy().to_string(),
+                                            ));
                                         }
                                     }
                                 }
@@ -122,6 +131,51 @@ impl HyprlandIpc {
                     }
                 }
             }
+        }
+    }
+
+    None
+}
+
+impl HyprlandIpc {
+    pub fn new() -> Result<Self> {
+        // Use cached discovery if available
+        if let Ok(cache) = DISCOVERED_SOCKETS.lock() {
+            if let Some((ref s1, ref s2)) = *cache {
+                return Ok(HyprlandIpc { socket_path: s1.clone(), socket2_path: s2.clone() });
+            }
+        }
+
+        // Rate-limit discovery attempts to avoid log spam
+        if let Ok(mut last) = LAST_DISCOVERY.lock() {
+            if let Some(t) = *last {
+                if t.elapsed() < REDISCOVER_BACKOFF {
+                    return Err(anyhow!("Hyprland not available (cached)"));
+                }
+            }
+            *last = Some(Instant::now());
+        }
+
+        if let Some((s1, s2)) = discover_hyprland_sockets() {
+            // Only log on first discovery or when socket path actually changes
+            let should_log = if let Ok(mut last) = LAST_LOGGED_SOCKET.lock() {
+                let changed = last.as_deref() != Some(&s1);
+                if changed {
+                    *last = Some(s1.clone());
+                }
+                changed
+            } else {
+                false
+            };
+            
+            if should_log {
+                println!("Found Hyprland socket at: {}", s1);
+            }
+            
+            if let Ok(mut cache) = DISCOVERED_SOCKETS.lock() {
+                *cache = Some((s1.clone(), s2.clone()));
+            }
+            return Ok(HyprlandIpc { socket_path: s1, socket2_path: s2 });
         }
 
         Err(anyhow!("Could not find Hyprland socket. Make sure Hyprland is running."))

@@ -4,6 +4,22 @@
 
 set -e
 
+SKIP_DEPS=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --skip-deps)
+            SKIP_DEPS=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            echo "Supported: --skip-deps" >&2
+            exit 1
+            ;;
+    esac
+done
+
 echo "Installing tiny-dfr for T2 MacBook..."
 
 # Check if running on T2 Mac
@@ -22,21 +38,25 @@ if [[ $EUID -eq 0 ]]; then
     exit 1
 fi
 
-# Install dependencies based on distro
-if command -v pacman &> /dev/null; then
-    echo "Detected Arch-based system"
-    sudo pacman -S --noconfirm rust cargo cairo libinput freetype2 fontconfig librsvg
-elif command -v apt &> /dev/null; then
-    echo "Detected Debian-based system"
-    sudo apt update
-    sudo apt install -y build-essential rustc cargo libcairo2-dev libinput-dev libfreetype6-dev libfontconfig1-dev librsvg2-dev
-elif command -v dnf &> /dev/null; then
-    echo "Detected Fedora-based system"
-    sudo dnf install -y rust cargo cairo-devel libinput-devel freetype-devel fontconfig-devel librsvg2-devel
+# Install dependencies based on distro (skip if --skip-deps)
+if ! $SKIP_DEPS; then
+    if command -v pacman &> /dev/null; then
+        echo "Installing dependencies (Arch)..."
+        sudo pacman -S --needed --noconfirm rust cargo cairo libinput freetype2 fontconfig librsvg
+    elif command -v apt &> /dev/null; then
+        echo "Installing dependencies (Debian/Ubuntu)..."
+        sudo apt update
+        sudo apt install -y build-essential rustc cargo libcairo2-dev libinput-dev libfreetype6-dev libfontconfig1-dev librsvg2-dev
+    elif command -v dnf &> /dev/null; then
+        echo "Installing dependencies (Fedora)..."
+        sudo dnf install -y rust cargo cairo-devel libinput-devel freetype-devel fontconfig-devel librsvg2-devel
+    else
+        echo "Unsupported distribution. Install dependencies manually or use --skip-deps."
+        echo "Required: rust, cargo, cairo, libinput, freetype, fontconfig, librsvg"
+        exit 1
+    fi
 else
-    echo "Unsupported distribution. Please install dependencies manually."
-    echo "Required packages: rust, cargo, cairo, libinput, freetype, fontconfig, librsvg"
-    exit 1
+    echo "Skipping dependency installation (--skip-deps)"
 fi
 
 # Build from source
@@ -51,10 +71,19 @@ sudo cp target/release/tiny-dfr /usr/bin/
 sudo mkdir -p /usr/share/tiny-dfr
 sudo cp share/tiny-dfr/* /usr/share/tiny-dfr/
 sudo cp etc/systemd/system/tiny-dfr.service /etc/systemd/system/
+sudo cp etc/systemd/system/tiny-dfr-post-resume.service /etc/systemd/system/
+sudo install -Dm755 bin/tiny-dfr-terminal-exec /usr/bin/tiny-dfr-terminal-exec
+
+# Install udev rules
+sudo cp etc/udev/rules.d/99-touchbar-seat.rules /etc/udev/rules.d/
+sudo cp etc/udev/rules.d/99-touchbar-tiny-dfr.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
+sudo udevadm trigger
 
 # Setup systemd service
 sudo systemctl daemon-reload
 sudo systemctl enable tiny-dfr
+sudo systemctl enable tiny-dfr-post-resume.service
 
 # Detect user environment for proper configuration
 echo "Detecting user environment..."
@@ -94,10 +123,28 @@ echo "Detected UID: $USER_UID"
 echo "Detected Wayland display: $WAYLAND_DISPLAY_VALUE"
 echo "Detected user paths: $USER_PATHS"
 
-# Copy config and commands for customization
+# Install configs (always update with backups)
 sudo mkdir -p /etc/tiny-dfr
-sudo cp /usr/share/tiny-dfr/config.toml /etc/tiny-dfr/config.toml
-sudo cp /usr/share/tiny-dfr/commands.toml /etc/tiny-dfr/commands.toml
+USER_CFG_DIR="$USER_HOME/.config/tiny-dfr"
+mkdir -p "$USER_CFG_DIR"
+
+TS=$(date +%Y%m%d%H%M%S)
+for f in config.toml commands.toml expandables.toml hyprland.toml; do
+    # System config
+    if [ -f "/etc/tiny-dfr/$f" ]; then
+        sudo cp "/etc/tiny-dfr/$f" "/etc/tiny-dfr/$f.bak.$TS"
+    fi
+    sudo cp "/usr/share/tiny-dfr/$f" "/etc/tiny-dfr/$f"
+    
+    # User config
+    if [ -f "$USER_CFG_DIR/$f" ]; then
+        cp "$USER_CFG_DIR/$f" "$USER_CFG_DIR/$f.bak.$TS"
+    fi
+    cp "/usr/share/tiny-dfr/$f" "$USER_CFG_DIR/$f"
+done
+
+# Ensure correct ownership
+chown -R "$CURRENT_USER":"$CURRENT_USER" "$USER_HOME/.config/tiny-dfr"
 
 # Create user-specific environment configuration
 sudo tee /etc/tiny-dfr/user-env.toml > /dev/null <<EOF
@@ -120,10 +167,6 @@ echo "Restarting tiny-dfr service..."
 sudo systemctl restart tiny-dfr
 
 echo ""
-echo "Installation complete!"
-echo "Edit /etc/tiny-dfr/config.toml to customize your Touch Bar"
-echo "Service is now running!"
+echo "✓ Installation complete!"
 echo ""
-echo "To check status: sudo systemctl status tiny-dfr"
-echo "To view logs: sudo journalctl -u tiny-dfr -f"
-echo "To restart: sudo systemctl restart tiny-dfr"
+

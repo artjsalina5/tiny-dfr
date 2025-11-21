@@ -1,0 +1,34 @@
+[Unit]
+Description=Fully reinitialize apple-bce and tiny-dfr after resume
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+After=suspend-fix-t2.service
+
+[Service]
+Type=oneshot
+# Wait for suspend-fix-t2 to reload apple-bce and for USB bus to fully enumerate
+# suspend-fix-t2 runs first and reloads apple-bce - we just need to wait for it
+# T2 MacBooks need 15-25 seconds for apple-bce USB bus to fully stabilize after modprobe
+ExecStartPre=/bin/sleep 15
+
+# Ensure drivers are loaded (may already be loaded by udev after apple-bce reload)
+ExecStartPre=-/usr/bin/modprobe appletbdrm
+ExecStartPre=-/usr/bin/modprobe hid-appletb-kbd
+ExecStartPre=-/usr/bin/modprobe hid-appletb-bl
+ExecStartPre=/bin/sleep 3
+
+# Trigger udev to ensure all rules are applied (including seat assignments)
+ExecStartPre=-/usr/bin/udevadm trigger --subsystem-match=usb --attr-match=idVendor=05ac --attr-match=idProduct=8302
+ExecStartPre=-/usr/bin/udevadm trigger --subsystem-match=input
+ExecStartPre=-/usr/bin/udevadm trigger --subsystem-match=drm
+ExecStartPre=/usr/bin/udevadm settle --timeout=10
+ExecStartPre=/bin/sleep 2
+
+# Now restart tiny-dfr (it has retry logic built-in for devices not ready yet)
+ExecStart=/usr/bin/systemctl restart tiny-dfr.service
+
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

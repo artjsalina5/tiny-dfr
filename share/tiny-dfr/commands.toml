@@ -1,39 +1,48 @@
-# commands.toml - Command definitions for tiny-dfr
-# Copy this file to /etc/tiny-dfr/commands.toml and edit to customize your commands
+# tiny-dfr commands
+# Copy to ~/.config/tiny-dfr/commands.toml to customize
 
-# Example commands - you can define infinite commands to be used as action
-Command_1 = "omarchy-menu"
-Command_2 = "uwsm app -- alacritty"
-Command_3 = "omarchy-menu apps"
-Command_4 = "omarchy-menu trigger"
-Command_5 = "omarchy-menu setup"
-Command_6 = "omarchy-launch-about"
-# ...
+Command_1  = "omarchy-menu"
+Command_2  = "uwsm app -- alacritty"
+Command_3  = "omarchy-menu apps"
+Command_4  = "omarchy-menu trigger"
+Command_5  = "omarchy-menu setup"
+Command_6  = "omarchy-launch-about"
 Command_99 = "code"
 
-Command_OmarchyMenu = "omarchy-menu"
-Command_OmarchyApps = "omarchy-menu apps"
+# Omarchy
+Command_OmarchyMenu    = "omarchy-menu"
+Command_OmarchyApps    = "omarchy-menu apps"
 Command_OmarchyTrigger = "omarchy-menu trigger"
-Command_OmarchyStyle = "omarchy-menu style"
-Command_OmarchySetup = "omarchy-menu setup"
+Command_OmarchyStyle   = "omarchy-menu style"
+Command_OmarchySetup   = "omarchy-menu setup"
 Command_OmarchyInstall = "omarchy-menu install"
-Command_OmarchyRemove = "omarchy-menu remove"
-Command_OmarchySystem = "omarchy-menu system"
-Command_Alacritty = "uwsm app -- alacritty"
+Command_OmarchyRemove  = "omarchy-menu remove"
+Command_OmarchySystem  = "omarchy-menu system"
+Command_Alacritty      = "uwsm app -- alacritty"
+Command_ColorPicker    = "pkill hyprpicker || hyprpicker -a"
 
-Command_ColorPicker = "pkill hyprpicker || hyprpicker -a"
+# Screenshots
+Command_ScreenshotRegion  = "sh -c \"omarchy-cmd-screenshot region\""
+Command_ScreenshotWindow  = "sh -c \"omarchy-cmd-screenshot windows\""
+Command_ScreenshotDisplay = "sh -c \"omarchy-cmd-screenshot fullscreen\""
 
-Command_ScreenshotRegion = "omarchy-cmd-screenshot"
-Command_ScreenshotWindow = "omarchy-cmd-screenshot window"
-Command_ScreenshotDisplay = "omarchy-cmd-screenshot output"
+# Screen recording
+Command_ScreenrecordRegion       = "sh -c \"omarchy-cmd-screenrecord region\""
+Command_ScreenrecordRegionAudio  = "sh -c \"omarchy-cmd-screenrecord region-audio\""
+Command_ScreenrecordDisplay      = "sh -c \"omarchy-cmd-screenrecord display\""
+Command_ScreenrecordDisplayAudio = "sh -c \"omarchy-cmd-screenrecord display-audio\""
 
-Command_ScreenrecordRegion = "omarchy-cmd-screenrecord"
-Command_ScreenrecordRegionAudio = "omarchy-cmd-screenrecord region audio"
-Command_ScreenrecordDisplay = "omarchy-cmd-screenrecord output"
-Command_ScreenrecordDisplayAudio = "omarchy-cmd-screenrecord output audio"
-
-Command_Clipboard = "walker -m clipboard"
-
-# Add more commands as needed:
-# Command_11 = "your-command-here"
-# Command_StringNotANumber = "another-command --with-args"
+# Apps
+Command_Btop        = "tiny-dfr-terminal-exec btop"
+Command_Wiremix     = "wiremix"
+Command_Walker      = "walker"
+Command_Browser     = "xdg-open https://"
+Command_Editor      = "code"
+Command_WiFi        = "nmtui"
+Command_Screensaver = "hyprlock"
+Command_Share       = "wl-copy"
+Command_AudioSwitch = "wpctl set-default"
+Command_Clipboard   = "uwsm app -- cliphist list | wofi --dmenu | cliphist decode | wl-copy"
+Command_WindowCloseAll     = "hyprctl dispatch killactive"
+Command_WindowPop          = "hyprctl dispatch togglefloating"
+Command_WorkspaceToggleGaps = "hyprctl keyword general:gaps_in 0"

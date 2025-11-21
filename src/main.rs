@@ -1068,17 +1068,14 @@ fn handle_hyprland_expand(hyprland_expand_name: &str, config: &Config, navigatio
     // Get the active window information
     let active_window_info = match hyprland::get_active_window_info() {
         Ok(info) => info,
-        Err(_) => {
-            // If we can't get active window info, ignore the button press
-            return;
-        }
+        Err(_) => return,
     };
 
     // Check if we have a Hyprland expandable configuration for this action
     if let Some(hyprland_configs) = config.hyprland_expandables.get(hyprland_expand_name) {
         // Find a matching configuration based on the active window class
         let matching_config = hyprland_configs.iter().find(|config| {
-            config.class == active_window_info.class
+            config.class == active_window_info.class || config.class == "*"
         });
 
         if let Some(matched_config) = matching_config {
@@ -1266,10 +1263,6 @@ fn execute_command(command_id: &str, config: &Config) {
 
                 // Use cached user environment for instant execution
                 if let Some(cached_env) = user_cache::get_cached_user_environment() {
-                    // Use runuser with login shell - no password required, reads .bash_profile, .bashrc, etc.
-                    let mut cmd = std::process::Command::new("/usr/bin/runuser");
-                    cmd.args(["-l", &cached_env.username, "-c", &command]);
-
                     // Use user environment config if available, otherwise use cached detection
                     let wayland_display = if let Some(user_env) = &user_env {
                         user_env.wayland_display.clone()
@@ -1277,21 +1270,138 @@ fn execute_command(command_id: &str, config: &Config) {
                         cached_env.wayland_display.clone()
                     };
 
-                    // Build command with environment variables embedded (to work with runuser -l)
-                    let env_command = format!(
-                        "export PATH='{}' DISPLAY=':0' WAYLAND_DISPLAY='{}' XDG_RUNTIME_DIR='{}'; {}",
-                        cached_env.enhanced_path, wayland_display, cached_env.runtime_dir, command
-                    );
+                    // Attempt to discover Hyprland instance signature for external tools
+                    let hypr_sig = {
+                        // Try /run/user/UID/hypr/*
+                        let hypr_dir = format!("{}/hypr", cached_env.runtime_dir);
+                        let mut found: Option<String> = None;
+                        if let Ok(entries) = std::fs::read_dir(&hypr_dir) {
+                            for entry in entries.flatten() {
+                                if let Ok(ft) = entry.file_type() {
+                                    if ft.is_dir() {
+                                        if let Some(name) = entry.file_name().to_str() {
+                                            if !name.is_empty() { found = Some(name.to_string()); break; }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Fallback: /tmp/hypr/*
+                        if found.is_none() {
+                            if let Ok(entries) = std::fs::read_dir("/tmp/hypr") {
+                                for entry in entries.flatten() {
+                                    if let Ok(ft) = entry.file_type() {
+                                        if ft.is_dir() {
+                                            if let Some(name) = entry.file_name().to_str() {
+                                                if !name.is_empty() { found = Some(name.to_string()); break; }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        found
+                    };
 
-                    // Update command to use embedded environment
-                    cmd = std::process::Command::new("/usr/bin/runuser");
-                    cmd.args(["-l", &cached_env.username, "-c", &env_command]);
+                    // Build command with environment variables embedded
+                    let env_command = if let Some(sig) = &hypr_sig {
+                        format!(
+                            "export PATH='{}' XDG_RUNTIME_DIR='{}' WAYLAND_DISPLAY='{}' DISPLAY=':0' DBUS_SESSION_BUS_ADDRESS='unix:path={}/bus' HYPRLAND_INSTANCE_SIGNATURE='{}' XDG_SESSION_TYPE='wayland'; {}",
+                            cached_env.enhanced_path,
+                            cached_env.runtime_dir,
+                            wayland_display,
+                            cached_env.runtime_dir,
+                            sig,
+                            command
+                        )
+                    } else {
+                        format!(
+                            "export PATH='{}' XDG_RUNTIME_DIR='{}' WAYLAND_DISPLAY='{}' DISPLAY=':0' DBUS_SESSION_BUS_ADDRESS='unix:path={}/bus' XDG_SESSION_TYPE='wayland'; {}",
+                            cached_env.enhanced_path,
+                            cached_env.runtime_dir,
+                            wayland_display,
+                            cached_env.runtime_dir,
+                            command
+                        )
+                    };
 
-                    if let Err(e) = cmd.spawn() {
-                        eprintln!("Failed to execute command '{}' as user '{}': {}", command, cached_env.username, e);
+                    // Preferred: launch into the user's systemd --user session so the process
+                    // is outside the system service cgroup/sandbox and inherits the right session
+                    // context. This avoids EPERM/Operation not permitted when TUIs spawn children.
+                    let mut launched = false;
+                    // Best effort: convey session-critical env to systemd-run itself via `env`
+                    // to ensure it can talk to the user manager and compositor.
+                    let mut try_systemd_run = std::process::Command::new("sudo");
+                    // Build argument list dynamically to include HYPRLAND_INSTANCE_SIGNATURE only when known
+                    {
+                        let mut args: Vec<String> = vec![
+                            "-u".into(),
+                            cached_env.username.clone(),
+                            "env".into(),
+                            format!("XDG_RUNTIME_DIR={}", cached_env.runtime_dir),
+                            format!("DBUS_SESSION_BUS_ADDRESS=unix:path={}/bus", cached_env.runtime_dir),
+                            format!("WAYLAND_DISPLAY={}", wayland_display),
+                            "DISPLAY=:0".into(),
+                            format!("PATH={}", cached_env.enhanced_path),
+                        ];
+                        if let Some(sig) = &hypr_sig {
+                            args.push(format!("HYPRLAND_INSTANCE_SIGNATURE={}", sig));
+                        }
+                        args.push("XDG_SESSION_TYPE=wayland".into());
+                        args.push("systemd-run".into());
+                        args.push("--user".into());
+                        args.push("--quiet".into());
+                        args.push("--collect".into());
+                        args.push("--same-dir".into());
+                        args.push("sh".into());
+                        args.push("-lc".into());
+                        args.push(env_command.clone());
+                        for a in args { try_systemd_run.arg(a); }
+                    }
+                    match try_systemd_run.spawn() {
+                        Ok(_) => {
+                            launched = true;
+                        }
+                        Err(e) => {
+                            eprintln!("systemd-run --user failed (sudo path): {}", e);
+                        }
+                    }
 
-                        // Fallback to basic execution
-                        fallback_execution(&command);
+                    if !launched {
+                        // Fallback: runuser login shell
+                        let runuser_candidates = [
+                            "/usr/bin/runuser",
+                            "/usr/sbin/runuser",
+                            "runuser",
+                        ];
+                        for bin in &runuser_candidates {
+                            let mut cmd = std::process::Command::new(bin);
+                            cmd.args(["-l", &cached_env.username, "-c", &env_command]);
+                            match cmd.spawn() {
+                                Ok(_) => {
+                                    launched = true;
+                                    break;
+                                }
+                                Err(e) => {
+                                    if e.kind() != std::io::ErrorKind::NotFound {
+                                        eprintln!("runuser variant '{}' failed: {}", bin, e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if !launched {
+                        // Last fallback: sudo -u USER sh -lc "..."
+                        let mut sudo = std::process::Command::new("sudo");
+                        sudo.args(["-u", &cached_env.username, "sh", "-lc", &env_command]);
+                        if let Err(e) = sudo.spawn() {
+                            eprintln!(
+                                "Failed to execute command '{}' as user '{}' via sudo: {}",
+                                command, cached_env.username, e
+                            );
+                            fallback_execution(&command);
+                        }
                     }
                 } else {
                     // Fallback if cache is not available
@@ -1310,6 +1420,7 @@ fn fallback_execution(command: &str) {
     cmd.arg("-c").arg(command);
     if let Err(e) = cmd.spawn() {
         eprintln!("Failed to execute command '{}': {}", command, e);
+        eprintln!("Hint: If the command launches a terminal application (e.g. btop, htop, nmtui), wrap it with your terminal, e.g. 'alacritty -e btop' or 'footclient -e btop'.");
     }
 }
 
@@ -1829,6 +1940,12 @@ fn real_main(drm: &mut DrmBackend) {
                     let dev = evt.device();
                     if dev.name().contains(" Touch Bar") {
                         digitizer = Some(dev);
+                    }
+                }
+                Event::Device(DeviceEvent::Removed(evt)) => {
+                    let dev = evt.device();
+                    if dev.name().contains(" Touch Bar") {
+                        digitizer = None;
                     }
                 }
                 Event::Keyboard(KeyboardEvent::Key(key)) => {

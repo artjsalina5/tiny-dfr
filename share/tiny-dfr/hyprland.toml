@@ -1,98 +1,33 @@
+# tiny-dfr hyprland integration
+# Copy to ~/.config/tiny-dfr/hyprland.toml to customize
+
 Hyprland_Expand_ActiveWindow = [
     { Class = "code", LayerKeys = [
-        { Icon = "command", Action = "F1", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "Format Document", Action = "KeyCombos_CTRL_SHIFT_I", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
+        { Icon = "command", Action = "F1", ShowButtonOutlines = true },
+        { Text = "Format Document", Action = "KeyCombos_CTRL_SHIFT_I", ShowButtonOutlines = true },
     ] },
 
     { Class = "chromium", LayerKeys = [
-        { Icon = "refresh", Action = "F5", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "History", Action = "KeyCombos_CTRL_H", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "Downloads", Action = "KeyCombos_CTRL_J", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "Print", Action = "KeyCombos_CTRL_P", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "Inspect", Action = "F12", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
+        { Icon = "refresh", Action = "F5", ShowButtonOutlines = true },
+        { Text = "History", Action = "KeyCombos_CTRL_H", ShowButtonOutlines = true },
+        { Text = "Downloads", Action = "KeyCombos_CTRL_J", ShowButtonOutlines = true },
+        { Text = "Print", Action = "KeyCombos_CTRL_P", ShowButtonOutlines = true },
+        { Text = "Inspect", Action = "F12", ShowButtonOutlines = true },
     ] },
 
     { Class = "google-chrome", LayerKeys = [
-        { Icon = "refresh", Action = "F5", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "History", Action = "KeyCombos_CTRL_H", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "Downloads", Action = "KeyCombos_CTRL_J", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "Print", Action = "KeyCombos_CTRL_P", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "Inspect", Action = "F12", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
+        { Icon = "refresh", Action = "F5", ShowButtonOutlines = true },
+        { Text = "History", Action = "KeyCombos_CTRL_H", ShowButtonOutlines = true },
+        { Text = "Downloads", Action = "KeyCombos_CTRL_J", ShowButtonOutlines = true },
+        { Text = "Print", Action = "KeyCombos_CTRL_P", ShowButtonOutlines = true },
+        { Text = "Inspect", Action = "F12", ShowButtonOutlines = true },
     ] },
 
     { Class = "Firefox", LayerKeys = [
-        { Icon = "refresh", Action = "F5", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "History", Action = "KeyCombos_CTRL_H", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "Downloads", Action = "KeyCombos_CTRL_J", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "Print", Action = "KeyCombos_CTRL_P", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
-        { Text = "Inspect", Action = "F12", ShowButtonOutlines = true, ButtonOutlinesColor = [
-            0.10196078431372549,
-            0.10588235294117647,
-            0.14901960784313725,
-        ] },
+        { Icon = "refresh", Action = "F5", ShowButtonOutlines = true },
+        { Text = "History", Action = "KeyCombos_CTRL_H", ShowButtonOutlines = true },
+        { Text = "Downloads", Action = "KeyCombos_CTRL_J", ShowButtonOutlines = true },
+        { Text = "Print", Action = "KeyCombos_CTRL_P", ShowButtonOutlines = true },
+        { Text = "Inspect", Action = "F12", ShowButtonOutlines = true },
     ] },
 ]

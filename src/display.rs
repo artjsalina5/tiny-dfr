@@ -178,25 +178,39 @@ fn try_open_card(path: &Path) -> Result<DrmBackend> {
 
 impl DrmBackend {
     pub fn open_card() -> Result<DrmBackend> {
-        let mut errors = Vec::new();
-        for entry in fs::read_dir("/dev/dri/")? {
-            let entry = entry?;
-            if !entry.file_name().to_string_lossy().starts_with("card") {
-                continue;
+        // Retry logic for resume scenarios where DRM device may not be immediately available
+        let max_attempts = 10;
+        for attempt in 0..max_attempts {
+            let mut errors = Vec::new();
+            for entry in fs::read_dir("/dev/dri/")? {
+                let entry = entry?;
+                if !entry.file_name().to_string_lossy().starts_with("card") {
+                    continue;
+                }
+                match try_open_card(&entry.path()) {
+                    Ok(card) => return Ok(card),
+                    Err(err) => errors.push(format!(
+                        "{}: {}",
+                        entry.path().as_os_str().to_string_lossy(),
+                        err
+                    )),
+                }
             }
-            match try_open_card(&entry.path()) {
-                Ok(card) => return Ok(card),
-                Err(err) => errors.push(format!(
-                    "{}: {}",
-                    entry.path().as_os_str().to_string_lossy(),
-                    err
-                )),
+            
+            if attempt < max_attempts - 1 {
+                eprintln!("Touch Bar DRM device not found (attempt {}/{}), retrying in 2s...", 
+                         attempt + 1, max_attempts);
+                eprintln!("Attempted devices: [{}]", errors.join(", "));
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            } else {
+                return Err(anyhow!(
+                    "No touchbar device found after {} attempts, last attempt: [\n    {}\n]",
+                    max_attempts,
+                    errors.join(",\n    ")
+                ));
             }
         }
-        Err(anyhow!(
-            "No touchbar device found, attempted: [\n    {}\n]",
-            errors.join(",\n    ")
-        ))
+        Err(anyhow!("Failed to open touchbar DRM device"))
     }
     pub fn mode(&self) -> Mode {
         self.mode

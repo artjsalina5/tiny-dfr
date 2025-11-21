@@ -1,12 +1,15 @@
 [Unit]
 Description=Tiny Apple T2 and Silicon Macs Touch Bar daemon
-After=systemd-user-sessions.service systemd-logind.service dev-tiny_dfr_display.device dev-tiny_dfr_backlight.device dev-tiny_dfr_display_backlight.device
-BindsTo=dev-tiny_dfr_display.device dev-tiny_dfr_backlight.device dev-tiny_dfr_display_backlight.device
+After=systemd-user-sessions.service systemd-logind.service dev-tiny_dfr_display.device dev-tiny_dfr_backlight.device dev-tiny_dfr_display_backlight.device suspend-fix-t2.service
+# Use Wants instead of BindsTo so the service can restart when devices reappear after suspend
+Wants=dev-tiny_dfr_display.device dev-tiny_dfr_backlight.device dev-tiny_dfr_display_backlight.device
 
 [Service]
 User=root
 ExecStart=/usr/bin/tiny-dfr
+# Restart aggressively, including after suspend/resume when devices reappear
 Restart=always
+RestartSec=5
 
 # === CRITICAL: Disable security features that block login shell execution ===
 

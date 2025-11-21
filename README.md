@@ -1,74 +1,60 @@
-# Enhanced tiny-dfr
+# tiny-dfr (Omarchy Fork)
 
-A Macbook Touch Bar daemon with enhanced features including Hyprland integration, expandable menus, and keyboard backlight control.
+**v0.4.0**
 
-## tiny-dfr with Enhanced Features
+Touch Bar daemon for Apple T2 and Silicon Macs. Fork of [tiny-dfr](https://github.com/AsahiLinux/tiny-dfr) with working suspend/resume, Hyprland integration, and better configuration.
 
-- **Hyprland Integration**: Context-aware buttons that change based on active window/application
-- **Expandable Menus**: Multi-level navigation with customizable button groups
-- **Custom Commands**: Define unlimited custom commands and actions
+## Features
 
-## Notes for T2
-- Required kernel modules for T2: `apple-bce`, `hid-appletb-kbd`, `hid-appletb-bl`
+- Working suspend/resume on T2 MacBooks
+- Touch input persists after wake
+- Hyprland window context support
+- Multi-level expandable menus
+- Keyboard backlight control
+- Easy configuration with examples
+- Omarchy ecosystem integration
+
+## Requirements (T2 Macs)
+
+Kernel modules: `apple-bce`, `hid-appletb-kbd`, `hid-appletb-bl`, `appletbdrm`
+
+Works with `suspend-fix-t2.service` for proper driver coordination on wake.
 
 ## Installation
-
-Use the provided installation script:
 
 ```bash
 ./install-tiny-dfr.sh
 ```
 
-The script will:
-- Install required dependencies
-- Build from source
-- Configure systemd service
-- Set up user environment
-- Apply default configuration
-
-
+Installs dependencies, builds from source, and sets up systemd services.
 
 ## Configuration
 
-Configuration files are located in `/etc/tiny-dfr/`:
+Config files load in priority order:
+1. `/usr/share/tiny-dfr/` (defaults)
+2. `/etc/tiny-dfr/` (system overrides)
+3. `~/.config/tiny-dfr/` (user overrides)
 
-### Main Configuration (`config.toml`)
-See [share/tiny-dfr/config.toml](share/tiny-dfr/config.toml) for examples
+Copy files from `share/tiny-dfr/` to customize.
 
+### config.toml
 
-### Commands (`commands.toml`)
-Define custom commands:
-- **Command_[Name]**: Named commands
+Display settings, brightness, fonts. See [share/tiny-dfr/config.toml](share/tiny-dfr/config.toml).
 
-See [share/tiny-dfr/commands.toml](share/tiny-dfr/commands.toml) for examples
+### commands.toml
 
+Custom commands as `Command_Name = "your-command"`. Terminal apps need wrapper: `alacritty -e btop`. See [share/tiny-dfr/commands.toml](share/tiny-dfr/commands.toml).
 
-### Expandable Menus (`expandables.toml`)
-Multi-level menu configurations:
-- **Expand_[Name]**: Named Expandables
+### expandables.toml
 
-See [share/tiny-dfr/expandables.toml](share/tiny-dfr/expandables.toml) for examples
+Multi-level menus. See [share/tiny-dfr/expandables.toml](share/tiny-dfr/expandables.toml).
 
+### hyprland.toml
 
-### Hyprland Integration (`hyprland.toml`)
-Application-specific button layouts:
-- **Class-based configurations**: Different buttons per application
-- **Dynamic context switching**: Buttons change based on active window
+Per-app button layouts. See [share/tiny-dfr/hyprland.toml](share/tiny-dfr/hyprland.toml).
 
-See [share/tiny-dfr/hyprland.toml](share/tiny-dfr/hyprland.toml) for examples
+## Omarchy Integration
 
-## Keyboard Backlight Support
+Ships with Omarchy defaults: menus, screenshots, screen recording. Customize via `Expand_Omarchy`.
 
-The daemon supports keyboard backlight control on the following device paths:
-1. `/sys/class/leds/:white:kbd_backlight`
-2. `/sys/class/leds/smc::kbd_backlight`
-3. **Generic detection**: Any device in `/sys/class/leds/` containing "kbd" or "keyboard"
-
-The system automatically detects available keyboard backlight devices and provides hardware-level brightness control with configurable step sizes.
-
-Check what keyboard backlight devices exist on your system:
-```bash
-ls -la /sys/class/leds/ | grep -i kbd
-# or
-find /sys/class/leds/ -name "*kbd*" -o -name "*keyboard*"
-```
+Helper script `tiny-dfr-terminal-exec` finds your terminal automatically (or set `$TERMINAL`).

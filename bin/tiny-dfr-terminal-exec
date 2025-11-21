@@ -1,0 +1,34 @@
+#!/bin/sh
+# tiny-dfr-terminal-exec: run a command inside a terminal emulator.
+# Prefers xdg-terminal-exec if present; otherwise tries common terminals.
+
+if command -v xdg-terminal-exec >/dev/null 2>&1; then
+  exec xdg-terminal-exec "$@"
+fi
+
+# Allow override via env
+if [ -n "$TERMINAL" ]; then
+  case "$TERMINAL" in
+    *footclient*) exec "$TERMINAL" -e "$@" ;;
+    *kitty*)      exec "$TERMINAL" -e "$@" ;;
+    *alacritty*)  exec "$TERMINAL" -e "$@" ;;
+    *wezterm*)    exec "$TERMINAL" start -- "$@" ;;
+    *gnome-terminal*) exec "$TERMINAL" -- "$@" ;;
+    *konsole*)    exec "$TERMINAL" -e "$@" ;;
+    *)            exec "$TERMINAL" -e "$@" ;;
+  esac
+fi
+
+# Auto-detect a terminal
+for term in footclient kitty alacritty wezterm gnome-terminal konsole xfce4-terminal mate-terminal ; do
+  if command -v "$term" >/dev/null 2>&1; then
+    case "$term" in
+      wezterm) exec wezterm start -- "$@" ;;
+      gnome-terminal) exec gnome-terminal -- "$@" ;;
+      *) exec "$term" -e "$@" ;;
+    esac
+  fi
+done
+
+# Last resort: try to run the command in a login shell
+exec sh -lc "$*"
