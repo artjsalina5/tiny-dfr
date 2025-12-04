@@ -1,0 +1,50 @@
+[Unit]
+Description=Disable and Re-Enable Apple BCE Module + WiFi + KB Backlight
+Before=sleep.target
+StopWhenUnneeded=yes
+
+[Service]
+User=root
+Type=oneshot
+RemainAfterExit=yes
+
+#kb backlight - needs additional script, comment if you don't have it
+#ExecStart=/usr/local/bin/kbd-backlight 0
+
+#touchbar and dependencies
+ExecStart=/usr/bin/systemctl stop tiny-dfr.service
+ExecStart=/usr/bin/modprobe -r appletbdrm
+ExecStart=/usr/bin/modprobe -r hid_appletb_bl
+ExecStart=/usr/bin/modprobe -r hid_appletb_kbd
+
+#WiFi - comment these if your network is fine after suspend
+#ExecStart=/usr/bin/modprobe -r brcmfmac_wcc
+#ExecStart=/usr/bin/modprobe -r brcmfmac
+
+ExecStart=/usr/bin/rmmod -f apple-bce
+
+ExecStop=/usr/bin/modprobe apple-bce
+
+#WiFi - comment these if your network is fine after suspend
+#ExecStop=/usr/bin/modprobe brcmfmac
+#ExecStop=/usr/bin/modprobe brcmfmac_wcc
+
+#touchbar and dependencies
+ExecStop=/bin/sleep 4
+ExecStop=/usr/bin/modprobe hid_appletb_bl
+ExecStop=/bin/sleep 2
+ExecStop=/usr/bin/modprobe hid_appletb_kbd
+ExecStop=/bin/sleep 2
+ExecStop=/usr/bin/modprobe appletbdrm
+ExecStop=/bin/sleep 2
+ExecStop=/usr/bin/systemctl start tiny-dfr.service
+
+#kb backlight - needs additional script, comment if you don't have it
+#ExecStop=/usr/local/bin/kbd-backlight 14660
+
+#restart tiny-dfr after a small delay in order to restore touch input events not being injected
+ExecStop=/bin/sleep 1
+ExecStop=/usr/bin/systemctl restart tiny-dfr.service
+
+[Install]
+WantedBy=sleep.target
