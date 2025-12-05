@@ -1,18 +1,17 @@
 # tiny-dfr (Omarchy Fork)
 
-**v0.4.0**
+**Version 0.5.0**
 
 Touch Bar daemon for Apple T2 and Silicon Macs. Fork of [tiny-dfr](https://github.com/AsahiLinux/tiny-dfr) with working suspend/resume, Hyprland integration, and better configuration.
 
 ## Features
 
-- Working suspend/resume on T2 MacBooks
+- Working suspend/resume on T2 MacBooks - Thanks to Beanlord
 - Touch input persists after wake
 - Hyprland window context support
 - Multi-level expandable menus
 - Keyboard backlight control
 - Easy configuration with examples
-- Omarchy ecosystem integration
 
 ## Requirements (T2 Macs)
 
@@ -28,9 +27,40 @@ Works with `suspend-fix-t2.service` for proper driver coordination on wake.
 
 Installs dependencies, builds from source, and sets up systemd services.
 
+### WiFi Fix
+
+If WiFi is failing to be restored, (Late 2019 MacbookPro 17,1) remove the
+following comment symbols from `/etc/systemd/system/suspend-fix-t2.service`.
+
+Recall that you can edit files that need elevated permissions using your text
+editor of choice with `sudoedit`.
+
+For Example,
+
+```bash
+sudoedit /etc/systemd/system/suspend-fix-t2.service
+```
+
+```bash
+#WiFi - comment these if your network is fine after suspend
+ExecStart=/usr/bin/modprobe -r brcmfmac_wcc
+ExecStart=/usr/bin/modprobe -r brcmfmac
+
+# WiFi - comment these if your network is fine after suspend
+ExecStop=/usr/bin/modprobe brcmfmac
+ExecStop=/usr/bin/modprobe brcmfmac_wcc
+```
+
+Then run
+
+```bash
+sudo systemctl daemon-reload
+```
+
 ## Configuration
 
 Config files load in priority order:
+
 1. `/usr/share/tiny-dfr/` (defaults)
 2. `/etc/tiny-dfr/` (system overrides)
 3. `~/.config/tiny-dfr/` (user overrides)

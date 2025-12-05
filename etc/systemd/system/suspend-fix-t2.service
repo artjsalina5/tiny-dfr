@@ -17,17 +17,17 @@ ExecStart=/usr/bin/modprobe -r appletbdrm
 ExecStart=/usr/bin/modprobe -r hid_appletb_bl
 ExecStart=/usr/bin/modprobe -r hid_appletb_kbd
 
-#WiFi - comment these if your network is fine after suspend
-#ExecStart=/usr/bin/modprobe -r brcmfmac_wcc
-#ExecStart=/usr/bin/modprobe -r brcmfmac
+# WiFi - comment these if your network is fine after suspend
+ExecStart=/usr/bin/modprobe -r brcmfmac_wcc
+ExecStart=/usr/bin/modprobe -r brcmfmac
 
 ExecStart=/usr/bin/rmmod -f apple-bce
 
 ExecStop=/usr/bin/modprobe apple-bce
 
-#WiFi - comment these if your network is fine after suspend
-#ExecStop=/usr/bin/modprobe brcmfmac
-#ExecStop=/usr/bin/modprobe brcmfmac_wcc
+# WiFi - comment these if your network is fine after suspend
+ExecStop=/usr/bin/modprobe brcmfmac
+ExecStop=/usr/bin/modprobe brcmfmac_wcc
 
 #touchbar and dependencies
 ExecStop=/bin/sleep 4

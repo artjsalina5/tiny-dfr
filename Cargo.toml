@@ -1,6 +1,6 @@
 [package]
 name = "tiny-dfr"
-version = "0.4.0-omarchy"
+version = "0.5.0-omarchy"
 edition = "2021"
 license = "MIT AND Apache-2.0"
 description = "Dynamic function row daemon for Apple MacBook Touch Bar - Omarchy fork with enhanced configuration and suspend/resume support"

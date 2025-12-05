@@ -70,8 +70,8 @@ sudo systemctl stop tiny-dfr 2>/dev/null || true
 sudo cp target/release/tiny-dfr /usr/bin/
 sudo mkdir -p /usr/share/tiny-dfr
 sudo cp share/tiny-dfr/* /usr/share/tiny-dfr/
+sudo cp etc/systemd/system/suspend-fix-t2.service /etc/systemd/system/
 sudo cp etc/systemd/system/tiny-dfr.service /etc/systemd/system/
-sudo cp etc/systemd/system/tiny-dfr-post-resume.service /etc/systemd/system/
 sudo install -Dm755 bin/tiny-dfr-terminal-exec /usr/bin/tiny-dfr-terminal-exec
 
 # Install udev rules
@@ -83,7 +83,7 @@ sudo udevadm trigger
 # Setup systemd service
 sudo systemctl daemon-reload
 sudo systemctl enable tiny-dfr
-sudo systemctl enable tiny-dfr-post-resume.service
+sudo systemctl enable suspend-fix-t2.service
 
 # Detect user environment for proper configuration
 echo "Detecting user environment..."
